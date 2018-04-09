@@ -1,0 +1,6 @@
+*.sqlite3
+bin/
+Relatorios/
+src/Client
+src/Sensor
+Mockup.png

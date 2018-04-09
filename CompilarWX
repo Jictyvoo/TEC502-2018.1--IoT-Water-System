@@ -1,0 +1,2 @@
+lua ../bin/wxluafreeze.lua /usr/local/bin/wxLuaFreeze client/Sensor.wx.lua Sensor
+lua ../bin/wxluafreeze.lua /usr/local/bin/wxLuaFreeze client/Client.wx.lua Client

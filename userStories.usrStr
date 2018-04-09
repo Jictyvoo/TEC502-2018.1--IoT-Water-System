@@ -1,0 +1,21 @@
+CLIENTE:
+
+	GUI:
+		Tela de Identificação;
+		Verificar consumo de água com data/horário;
+		Verificar o total acumulado de consumo;
+		Definir meta de consumo de água;
+		--Solicitar fatura;
+
+	Sensor:
+		Enviar dados de consumo de água (a todo momento?);
+		Enviar a data e hora do envio dos dados;
+		Enviar a Identificação do Sensor;
+
+SERVIDOR:
+
+	Medir consumo por cliente, armazenar data/horário;
+	--Gerar fatura para cada cliente;
+	--Verificar possível vazamento ou escassez;
+	Verificar se o Cliente ultrapassou a meta de consumo;
+	Enviar email ao cliente;
