@@ -1,6 +1,10 @@
 *.sqlite3
+
 bin/
 Relatorios/
-src/Client
-src/Sensor
+
+#Executable Files
+#src/Client
+#src/Sensor
+
 Mockup.png
