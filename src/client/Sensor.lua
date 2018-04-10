@@ -10,7 +10,7 @@ function Sensor:new()
         id; 
 
         constructor = function(this)
-            this.host = "192.168.0.109"
+            this.host = "192.168.43.250"
             this.port = 3031
             this.udp = assert(socket.udp())
             this.id = "94:39:e5:f6:6c:1d"

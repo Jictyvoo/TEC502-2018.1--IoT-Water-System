@@ -1,18 +1,19 @@
 local Server_UDP = {}
 
-function Server_UDP:new(serverConn, host, port, databaseConn)
+function Server_UDP:new(socket, host, port, databaseConn)
     local self = {
         serverConnection; 
         databaseConnection; 
 
-        constructor = function(this, serverConn, host, port, databaseConn)
-            this.serverConnection = serverConn
-            this.serverConnection.setsockname(serverConn, host, port)
+        constructor = function(this, socket, host, port, databaseConn)
+            this.serverConnection = socket.udp()
+            this.serverConnection.setsockname(this.serverConnection, host, port)
+            this.serverConnection:settimeout(0.001)
             this.databaseConnection = databaseConn
         end
     }
 
-    self.constructor(self, serverConn, host, port, databaseConn)
+    self.constructor(self, socket, host, port, databaseConn)
 
     local function insertIntoDatabase(sensorID, waterExpense, dateTime)
         local searchDB = string.format("SELECT * FROM Client where Client.ip_client = '%s'", sensorID)
@@ -49,7 +50,12 @@ function Server_UDP:new(serverConn, host, port, databaseConn)
 
     local function receiveInformation()
         while true do
-            messageReceivedTreatment(self.serverConnection:receive())
+            local message = self.serverConnection:receive()
+            if(message) then
+                messageReceivedTreatment(message)
+                print(message)
+            end
+            coroutine.yield()
         end
     end
 

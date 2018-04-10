@@ -1,7 +1,10 @@
 *.sqlite3
+*.so
 
 bin/
 Relatorios/
+src/util/example.c
+src/util/lualib
 
 #Executable Files
 #src/Client

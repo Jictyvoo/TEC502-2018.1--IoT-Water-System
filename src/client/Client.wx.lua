@@ -1,11 +1,8 @@
 -----------------------------------------------------------------------------
 -- Name:        Client.wx.lua
--- Purpose:     Settings wxLua sample - show results of all informational functions
+-- Purpose:     Graphical Interface for use the Client in IoT tests
 -- Author:      João Victor Oliveira Couto
--- Modified by:
--- Created:     05/04/2018
--- RCS-ID:
--- Copyright:   (c) 2018 João Victor Oliveira Couto
+-- Created:     April 2018
 -- Licence:     wxWidgets licence
 -----------------------------------------------------------------------------
 

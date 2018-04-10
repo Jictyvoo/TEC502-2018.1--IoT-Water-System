@@ -16,10 +16,14 @@ function Server:new()
         port; 
         server; 
         databaseConnection; 
+        udp_thread; 
+        tcp_thread; 
 
         constructor = function(this)
-            this.host = "192.168.0.109"; 
-            this.port = 3030; 
+            this.host = "192.168.43.250" 
+            this.port = 3030 
+            this.udp_thread = nil
+            this.tcp_thread = nil
             -- create a TCP socket and bind it to the local host, at any port
             this.server = assert(socket.bind(this.host, this.port))
             this.databaseConnection = sqlite3:connect("inova_database.sqlite3")
@@ -50,14 +54,32 @@ function Server:new()
         m.sendMessage("Meta de consumo", "Atingiu a meta de consumo estabelecida")
     end
 
-    local mainLoop = function()
-        local udp_server = (require "server.Server_UDP"):new(socket.udp(), self.host, self.port + 1, self.databaseConnection)
-        --udp_server.receiveInformation()
-        local tcp_server = (require "server.Server_TCP"):new(socket.tcp(), self.databaseConnection) 
-        tcp_server.authenticateClient("[sensorID]<" .. "94:39:e5:f6:6c:1d" .. ">)([clientMail]<" .. "jictyvoo" .. ">\n")
+    local main = function()
+        while true do
+            print("Que merda")
+            socket.sleep(0.5)
+            coroutine.yield()
+            --socket.sleep(2)
+        end
     end
 
-    return {mainLoop = mainLoop; sendMail = sendMail}
+    local udp_loop = function()
+        local udp_connection = (require "server.Server_UDP"):new(socket, self.host, self.port + 1, self.databaseConnection)
+        udp_connection.receiveInformation()
+    end
+
+    local startServer = function()
+        local tcp_server = (require "server.Server_TCP"):new(socket.tcp(), self.databaseConnection) 
+        --tcp_server.authenticateClient("[sensorID]<" .. "94:39:e5:f6:6c:1d" .. ">)([clientMail]<" .. "jictyvoo" .. ">\n")
+        self.udp_thread = coroutine.create(udp_loop)
+        self.tcp_thread = coroutine.create(main)
+        while true do
+            coroutine.resume(self.udp_thread)
+            coroutine.resume(self.tcp_thread)
+        end
+    end
+
+    return {startServer = startServer; sendMail = sendMail}
 end
 
-Server:new().mainLoop()
+Server:new().startServer()

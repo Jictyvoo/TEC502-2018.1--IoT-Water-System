@@ -70,7 +70,7 @@ function Client:new()
                     local begining, ending = message:find("[waterConsume]<")
                     local newConsume = {consume = 0, dateTime = ""}
                     newConsume.consume = tonumber(message:sub(ending):match("%d"))
-                    begining, ending = message:find(">)([clientMail]<")
+                    begining, ending = message:find(">)([dateTime]<")
                     newConsume.dateTime = message:match("[.^>]+")
                 end
             until not server
