@@ -1,4 +1,5 @@
 local socket = require "socket"
+local macadress = require "util.macAdress"
 
 local Sensor = {}
 
@@ -10,10 +11,10 @@ function Sensor:new()
         id; 
 
         constructor = function(this)
-            this.host = "192.168.43.250"
+            this.host = "192.168.0.109"
             this.port = 3031
             this.udp = assert(socket.udp())
-            this.id = "94:39:e5:f6:6c:1d"
+            this.id = macadress:findMac()
         end
     }
 
@@ -24,7 +25,14 @@ function Sensor:new()
         --print(self.id .. "->" .. message .. "[=]:" .. os.date("%c"))
     end
 
-    return {sendInformations = sendInformations}
+    local getMAC = function()
+        return self.id
+    end
+
+    return {
+        sendInformations = sendInformations, 
+        getMAC = getMAC
+    }
 
 end
 

@@ -3,6 +3,7 @@
 #include <stdio.h>              /* Standard I/O */
 #include <stdlib.h>             /* Standard Library */
 #include <errno.h>              /* Error number and related */
+#include <string.h>
 
 
 #define ENUMS
@@ -25,9 +26,9 @@
 #include <netdb.h>
 
 /*include lua library*/
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
+#include "lualib/lua.h"
+#include "lualib/lauxlib.h"
+#include "lualib/lualib.h"
 
 int get_local_hwaddr(const char *ifname, unsigned char *mac)
 {
@@ -50,29 +51,39 @@ int get_local_hwaddr(const char *ifname, unsigned char *mac)
 }
 
 
-void findMac(char * argv[] ){
-
-unsigned char  mac[IFHWADDRLEN];
-int i;
+void findMac(char * argv[], char* returnedString){
+    unsigned char  mac[IFHWADDRLEN];
+    int i;
     get_local_hwaddr( argv[1], mac );
+    char macPiece[IFHWADDRLEN][6];
+    char completeMac[IFHWADDRLEN * 3];
+    completeMac[0] = '\0';
     for( i = 0; i < IFHWADDRLEN; i++ ){
-        printf( "%02X:", (unsigned int)(mac[i]) );
+        ///*s*/printf(/*macPiece,*/ "%02X:", (unsigned int)(mac[i]) );
+        snprintf(macPiece[i], sizeof(char*), "%02X:", (unsigned int)(mac[i]) );
+        strcat(completeMac, macPiece[i]);
     }
-
+    strcpy(returnedString, completeMac);
 }
 
-int main(int argc, char * argv[]) {
+static int lua_findMac(lua_State *L){
+    if(lua_gettop(L) >= 1){
+        char* address[] = {"find","wlp3s0"};
+        char macPiece[IFHWADDRLEN * 3];
+        findMac(address, macPiece);
+        macPiece[strlen(macPiece) - 1] = '\0';
+        //printf("%s\n", macPiece);
+        lua_pushstring (L, macPiece);
+        return 1;
+    }
+}
 
-    lua_State * L;
-    lua_open(L);
-    /* Bind the C functions to Lua functions */
-    luaL_Reg func[] = {
-        {"findMac", findMac},
-        {NULL, NULL}
-    };
-    luaL_setfuncs(L, &func, 0);
-    /* execute script from stdin */
-    int res = luaL_dofile(L, NULL);
-    //findMac(argv);
-    return 0;
+static const struct luaL_Reg findMacFunc [] = {
+  {"findMac", lua_findMac},
+  {NULL,NULL}
+};
+
+int luaopen_util_macAdress(lua_State *L){
+  luaL_newlib (L, findMacFunc);   /* register C functions with Lua */
+  return 1;
 }

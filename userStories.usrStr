@@ -19,3 +19,9 @@ SERVIDOR:
 	--Verificar possível vazamento ou escassez;
 	Verificar se o Cliente ultrapassou a meta de consumo;
 	Enviar email ao cliente;
+
+POSSÍVEIS ERROS:
+
+	Clientes conectados com o servidor e a conexão cai
+	Servidor cai enquanto cliente conectado
+	Cliente desconecta (cai) sem que a conexão com o servidor seja fechada

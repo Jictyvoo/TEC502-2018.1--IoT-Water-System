@@ -8,17 +8,16 @@
 
 -- Load the wxLua module, does nothing if running from wxLua, wxLuaFreeze, or wxLuaEdit
 package.cpath = package.cpath..";./?.dll;./?.so;../lib/?.so;../lib/vc_dll/?.dll;../lib/bcc_dll/?.dll;../lib/mingw_dll/?.dll;"
-require "wx"
+require("wx")
 
 local sensorSocket = (require "client.Sensor"):new()
 
 local frame = nil
-local currentCost = 100
-local staticText = nil
+local currentFlow = 0
+local totalConsume = 0
+local previousConsume = 0
 local timer = nil
-local checkListBox = nil
-local radioBox = nil
-local timerParams = {seconds = 1, updated = false}
+local timerParams = {current = 0, seconds = 60, updated = false, automatic = false}
 
 local TEXTENTRY_ID = 1001
 local UPBUTTON_ID = 1002
@@ -27,103 +26,133 @@ local RADIOBOX_ID = 1004
 local CHECKLISTBOX_ID = 1005
 local SENDBUTTON_ID = 1006
 
+local UI = {}
+
+-- create mainFrame
+UI.mainFrame = wx.wxFrame (wx.NULL, wx.wxID_ANY, "Inova Sensor", wx.wxDefaultPosition, wx.wxSize(230, 250), wx.wxCLOSE_BOX + wx.wxDEFAULT_FRAME_STYLE + wx.wxMAXIMIZE_BOX + wx.wxMINIMIZE_BOX + wx.wxTAB_TRAVERSAL)
+UI.mainFrame:SetSizeHints(wx.wxSize(230, 250), wx.wxSize(230, 250))
+
+UI.statusBarSensor = UI.mainFrame:CreateStatusBar(1)
+UI.mainFrame:SetStatusText(string.format("Sensor ID:%s", sensorSocket.getMAC()), 0)
+UI.mainSizer = wx.wxBoxSizer(wx.wxVERTICAL)
+
+UI.mainPanel = wx.wxPanel(UI.mainFrame, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxTAB_TRAVERSAL)
+UI.panelSizer = wx.wxBoxSizer(wx.wxVERTICAL)
+
+UI.currentFlow_staticText = wx.wxStaticText(UI.mainPanel, wx.wxID_ANY, string.format("Current Flow: %.2fm³/s", currentFlow), wx.wxDefaultPosition, wx.wxDefaultSize, 0)
+UI.currentFlow_staticText:Wrap(-1)
+UI.panelSizer:Add(UI.currentFlow_staticText, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+UI.totalConsume_staticText = wx.wxStaticText(UI.mainPanel, wx.wxID_ANY, string.format("Total Consume: %.2fm³", totalConsume), wx.wxDefaultPosition, wx.wxDefaultSize, 0)
+UI.totalConsume_staticText:Wrap(-1)
+UI.panelSizer:Add(UI.totalConsume_staticText, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+UI.buttonSizer_grid = wx.wxGridSizer(0, 2, 0, 0)
+
+UI.upButton = wx.wxButton(UI.mainPanel, UPBUTTON_ID, "Up", wx.wxDefaultPosition, wx.wxDefaultSize, 0)
+UI.buttonSizer_grid:Add(UI.upButton, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+UI.downButton = wx.wxButton(UI.mainPanel, DOWNBUTTON_ID, "Down", wx.wxDefaultPosition, wx.wxDefaultSize, 0)
+UI.buttonSizer_grid:Add(UI.downButton, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+
+UI.panelSizer:Add(UI.buttonSizer_grid, 1, wx.wxEXPAND, 5)
+
+UI.sycronization_radioBoxChoices = {"1", "5", "10", "60"}
+UI.sycronization_radioBox = wx.wxRadioBox(UI.mainPanel, RADIOBOX_ID, "Syncronization Frequency", wx.wxDefaultPosition, wx.wxDefaultSize, UI.sycronization_radioBoxChoices, 1, wx.wxRA_SPECIFY_ROWS)
+UI.sycronization_radioBox:SetSelection(0)
+UI.panelSizer:Add(UI.sycronization_radioBox, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+UI.sendAutomatic_checkBox = wx.wxCheckBox(UI.mainPanel, CHECKLISTBOX_ID, "Send Automatic Data", wx.wxDefaultPosition, wx.wxDefaultSize, 0)
+UI.panelSizer:Add(UI.sendAutomatic_checkBox, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+UI.sendData_button = wx.wxButton(UI.mainPanel, SENDBUTTON_ID, "Send Data", wx.wxDefaultPosition, wx.wxDefaultSize, 0)
+UI.panelSizer:Add(UI.sendData_button, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
+
+
+UI.mainPanel:SetSizer(UI.panelSizer)
+UI.mainPanel:Layout()
+UI.panelSizer:Fit(UI.mainPanel)
+UI.mainSizer:Add(UI.mainPanel, 1, wx.wxEXPAND + wx. wxALL, 5)
+
+
+UI.mainFrame:SetSizer(UI.mainSizer)
+UI.mainFrame:Layout()
+
+UI.mainFrame:Centre(wx.wxBOTH)
+
+--[[Space for UI functions--]]
 function timerSeconds(event)
     local timeString = event:GetString()
-    timerParams.seconds = tonumber(timeString:sub(1, #timeString - 1))
+    timerParams.seconds = tonumber(timeString) * 60
     timerParams.updated = true
 end
 
 function automaticSend(event)
-    if(checkListBox:IsChecked(0)) then
-        local timeString = radioBox:GetStringSelection()
-        timer:Start(1000 * tonumber(timeString:sub(1, #timeString - 1)))
+    if(UI.sendAutomatic_checkBox:IsChecked()) then
+        timerParams.automatic = true
     else
-        timer:Stop()
+        timerParams.automatic = false
+        timerParams.current = 0
     end
 end
 
-function updateStaticText()
-    staticText:SetLabel("Current Flow: " .. currentCost .. "m³/s")
+function updateCurrentFlow_staticText()
+    UI.currentFlow_staticText:SetLabel(string.format("Current Flow: %.2fm³/s", currentFlow))
 end
 
-function firstPanel(panel, sizer, notebook)
-    local panel, sizer = panel or wx.wxPanel(notebook, wx.wxID_ANY), sizer or wx.wxBoxSizer(wx.wxVERTICAL)
-    
-    local textEntry = wx.wxStaticText(panel, TEXTENTRY_ID, "Current Flow: " .. currentCost .. "m³/s"); 
-    staticText = textEntry
-    local upButton = wx.wxButton(panel, UPBUTTON_ID, "Up")
-    local downButton = wx.wxButton(panel, DOWNBUTTON_ID, "Down")
-
-    local buttonSizer = wx.wxFlexGridSizer(1, 0, 5, 5)
-    buttonSizer:AddGrowableCol(2)
-    buttonSizer:Add(upButton, 0, 0)
-    buttonSizer:Add(downButton, 0, 0)
-
-    -- Put them in a vertical sizer, with ratio 3 units for the text entry, 5 for button
-    -- and padding of 6 pixels.
-    sizer:Add(textEntry, 0, wx.wxALL + wx.wxGROW, 6)
-    --sizer:Add(buttonSizer, 0, wx.wxALL + wx.wxGROW, 6)
-    sizer:Add(buttonSizer, 0, wx.wxEXPAND, 0)
-
-    radioBox = wx.wxRadioBox(panel, RADIOBOX_ID, "Syncronization Frequency", wx.wxDefaultPosition, 
-    wx.wxDefaultSize, {"1s", "5s", "10s", "30s"}, 1, wx.wxRA_SPECIFY_ROWS)
-
-    checkListBox = wx.wxCheckListBox(panel, CHECKLISTBOX_ID, wx.wxDefaultPosition, wx.wxSize(200, 30), 
-    {"Send Automatic Data"}, wx.wxLB_MULTIPLE)
-
-    local sendSizer = wx.wxFlexGridSizer(0, 1, 5, 5)
-    sendSizer:AddGrowableRow(2)
-    sendSizer:Add(radioBox, 0, 0)
-    sendSizer:Add(checkListBox, 0, 0)
-
-    local sendButton = wx.wxButton(panel, SENDBUTTON_ID, "Send Data")
-    sendSizer:Add(sendButton, 0, wx.wxEXPAND, 0)
-
-    sizer:Add(sendSizer, 0, wx.wxEXPAND, 0)
-
-    --sizer:Add(radioBox, 1, wx.wxALL + wx.wxGROW, 0)
-    --sizer:Add(checkListBox, 1, wx.wxALL + wx.wxGROW, 0)
-    panel:SetSizer(sizer)
-    sizer:SetSizeHints(panel)
+function updateTotalConsume_staticText()
+    UI.totalConsume_staticText:SetLabel(string.format("Total Consume: %.2fm³", totalConsume))
 end
 
 function connectButtons()
     local upFunction = function (event)
-        currentCost = currentCost + 10; updateStaticText()
+        currentFlow = currentFlow + 0.01; updateCurrentFlow_staticText()
     end
 
     local downFunction = function (event)
-        currentCost = currentCost - 10; updateStaticText()
+        currentFlow = currentFlow > 0 and (currentFlow - 0.01) or currentFlow
+        updateCurrentFlow_staticText()
     end
 
     local sendFunction = function(event)
-        sensorSocket.sendInformations(currentCost)
+        sensorSocket.sendInformations(totalConsume - previousConsume)
+        previousConsume = totalConsume
     end
 
-    frame:Connect(RADIOBOX_ID, wx.wxEVT_COMMAND_RADIOBOX_SELECTED, timerSeconds)
-    frame:Connect(CHECKLISTBOX_ID, wx.wxEVT_COMMAND_CHECKLISTBOX_TOGGLED, automaticSend)
-    frame:Connect(UPBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, upFunction)
-    frame:Connect(DOWNBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, downFunction)
-    frame:Connect(SENDBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, sendFunction)
+    UI.mainFrame:Connect(RADIOBOX_ID, wx.wxEVT_COMMAND_RADIOBOX_SELECTED, timerSeconds)
+    UI.mainFrame:Connect(CHECKLISTBOX_ID, wx.wxEVT_COMMAND_CHECKBOX_CLICKED, automaticSend)
+    UI.mainFrame:Connect(UPBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, upFunction)
+    UI.mainFrame:Connect(DOWNBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, downFunction)
+    UI.mainFrame:Connect(SENDBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, sendFunction)
 
     local accelTable = wx.wxAcceleratorTable({
         {wx.wxACCEL_NORMAL, wx.WXK_UP, UPBUTTON_ID}, 
     {wx.wxACCEL_NORMAL, wx.WXK_DOWN, DOWNBUTTON_ID}})
 
-    frame:SetAcceleratorTable(accelTable)
+    UI.mainFrame:SetAcceleratorTable(accelTable)
 end
 
 function sendTimer(panel)
     timer = wx.wxTimer(panel)
     local timeEvent = function (event)
-        sensorSocket.sendInformations(currentCost)
-        if(timerParams.updated) then
-            timer:Stop()
-            timer:Start(1000 * timerParams.seconds)
+        if(timerParams.automatic) then
+            timerParams.current = timerParams.current + 1
+            if(timerParams.current >= timerParams.seconds) then
+                sensorSocket.sendInformations(totalConsume - previousConsume)
+                previousConsume = totalConsume
+                timerParams.current = 0
+            end
         end
+        totalConsume = totalConsume + currentFlow
+        updateTotalConsume_staticText()
+        --[=[if(timerParams.updated) then
+            timer:Stop()
+            timer:Start(1000--[[ * timerParams.seconds--]])
+        end--]=]
     end
     panel:Connect(wx.wxEVT_TIMER, timeEvent)
-    --timer:Start(1000)
+    timer:Start(1000)
 
     local closeTimer = function (event)
         event:Skip()
@@ -134,36 +163,14 @@ function sendTimer(panel)
         end
     end
 
-    frame:Connect(wx.wxEVT_CLOSE_WINDOW, closeTimer)
+    UI.mainFrame:Connect(wx.wxEVT_CLOSE_WINDOW, closeTimer)
 
 end
 
-function main()
-    -- create the hierarchy: frame -> notebook
-    frame = wx.wxFrame(wx.NULL, wx.wxID_ANY, "Sensor Client", wx.wxDefaultPosition, wx.wxSize(200, 200))
-    frame:CreateStatusBar(1)
-    frame:SetStatusText("Sensor ID", 0)
+connectButtons()
+sendTimer(UI.mainPanel)
 
-    -- create first panel in the notebook control
-    local panel_1 = wx.wxScrolledWindow(frame, wx.wxID_ANY)
-    local sizer_1 = wx.wxBoxSizer(wx.wxVERTICAL)
+UI.mainFrame:Show(true)
 
-    firstPanel(panel_1, sizer_1, frame)
 
-    frame:SetSizeHints(frame:GetBestSize():GetWidth(), frame:GetBestSize():GetHeight())
-
-    connectButtons()
-    sendTimer(panel_1)
-
-    panel_1:SetAutoLayout(true)
-
-    frame:Show(true)
-end
-
-main()
-
--- Call wx.wxGetApp():MainLoop() last to start the wxWidgets event loop,
--- otherwise the wxLua program will exit immediately.
--- Does nothing if running from wxLua, wxLuaFreeze, or wxLuaEdit since the
--- MainLoop is already running or will be started by the C++ program.
 wx.wxGetApp():MainLoop()
