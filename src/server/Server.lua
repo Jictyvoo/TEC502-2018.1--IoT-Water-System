@@ -16,6 +16,7 @@ function Server:new()
         udp_thread; 
         tcp_thread; 
         dataManager; 
+        connectedClients; 
 
         constructor = function(this)
             this.host = "192.168.0.109" 
@@ -23,7 +24,11 @@ function Server:new()
             this.udp_thread = nil
             this.tcp_thread = nil
             -- create a TCP socket and bind it to the local host, at any port
-            this.server = assert(socket.bind(this.host, this.port))
+            this.server = socket.tcp()
+            this.server:bind(this.host, this.port)
+            this.server:listen(1000)
+            this.server:settimeout(0.001)
+            this.connectedClients = {}
             this.databaseConnection = sqlite3:connect("inova_database.sqlite3")
             this.dataManager = DataManager:instance()
             this.dataManager.setConnection(this.databaseConnection)
@@ -41,14 +46,33 @@ function Server:new()
         m.sendMessage("Meta de consumo", "Atingiu a meta de consumo estabelecida")
     end
 
-    local tcp_loop = function()
-        local tcp_server = (require "server.Server_TCP"):new(socket.tcp(), self.databaseConnection, self.dataManager) 
-        --tcp_server.authenticateClient("[sensorID]<" .. "94:39:e5:f6:6c:1d" .. ">)([clientMail]<" .. "jictyvoo" .. ">\n")
+    local verifyGoal_loop = function()
+        
+    end
+
+    local executeClient = function()
         while true do
-            print("A simple test")
-            socket.sleep(0.5)
+            for index, value in pairs(self.connectedClients) do
+                coroutine.resume(value)
+                --print(coroutine.status(value))
+                coroutine.yield()
+            end
             coroutine.yield()
-            --socket.sleep(2)
+        end
+    end
+
+    local tcp_loop = function()
+        local client = nil
+        while true do
+            client = self.server:accept()
+            if(client) then
+                local peername = client:getpeername()
+                print(string.format("Client Connected in IP:%s", peername))
+                local tcp_server = (require "server.Server_TCP"):new(client, self.databaseConnection, self.dataManager) 
+                tcp_server.setThreadTable(self.connectedClients)
+                tcp_server.start()
+            end
+            coroutine.yield()
         end
     end
 
@@ -60,9 +84,12 @@ function Server:new()
     local startServer = function()
         self.udp_thread = coroutine.create(udp_loop)
         self.tcp_thread = coroutine.create(tcp_loop)
+        local clients = coroutine.create(executeClient)
         while true do
             coroutine.resume(self.udp_thread)
-            --coroutine.resume(self.tcp_thread)
+            coroutine.resume(self.tcp_thread)
+            coroutine.resume(clients)
+            --print(coroutine.status(clients))
         end
     end
 

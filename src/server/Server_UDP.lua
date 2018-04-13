@@ -60,6 +60,10 @@ function Server_UDP:new(socket, host, port, databaseConn)
         local sensorID = message:match("[a-zA-Z0-9,:]+")
         local beging, ending = message:find("->")
         local waterExpense = message:sub(ending + 1):match("%d%.%d+")
+
+        if(#sensorID < 14 or (not tonumber(waterExpense))) then
+            return nil
+        end
         
         beging, ending = message:find("%[=%]:")
         local dateTime = message:sub(ending + 1)
@@ -70,6 +74,7 @@ function Server_UDP:new(socket, host, port, databaseConn)
         while true do
             local message = self.serverConnection:receive()
             if(message) then
+                --print(message)
                 messageReceivedTreatment(message)
             end
             coroutine.yield()

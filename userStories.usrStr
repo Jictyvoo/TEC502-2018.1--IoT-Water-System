@@ -25,3 +25,4 @@ POSSÍVEIS ERROS:
 	Clientes conectados com o servidor e a conexão cai
 	Servidor cai enquanto cliente conectado
 	Cliente desconecta (cai) sem que a conexão com o servidor seja fechada
+	Cliente conectado no servidor envia mensagem incorreta - tratar mensagens inesperadas

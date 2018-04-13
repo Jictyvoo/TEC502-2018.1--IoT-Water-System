@@ -46,6 +46,7 @@ end
 
 function FillListCtrl(listCtrl)
     listCtrl: DeleteAllItems()
+    --clientSocket.requireWaterConsume()
     for i = 0, 100, 1 do
         AddListItem({"\t\t\t" .. i, os.date()})
     end
@@ -130,6 +131,8 @@ function configurationDialog(parentWindow)
         event:Skip()
         savedEmail = emailTextInput:GetValue()
         savedSensorID = sensorIdTextInput:GetValue()
+        clientSocket.setSensorID(savedSensorID)
+        clientSocket.setClientMail(savedEmail)
     end
     dialogConfig:Connect(wx.wxEVT_CLOSE_WINDOW, onQuitDialog) 
     dialogConfig:Show(true)
