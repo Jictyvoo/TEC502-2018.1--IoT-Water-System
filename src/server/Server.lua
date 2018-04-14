@@ -3,24 +3,20 @@ local socket = require "socket"
 local NoReply = require "util.NoReply"
 local DataManager = require "server.DataManager"
 local sqlite3 = (require "luasql.sqlite3"):sqlite3()
-
 local Server = {}
-
 function Server:new()
-
     local self = {
-        host; 
-        port; 
-        server; 
-        databaseConnection; 
-        udp_thread; 
-        tcp_thread; 
-        dataManager; 
-        connectedClients; 
-
+        host;
+        port;
+        server;
+        databaseConnection;
+        udp_thread;
+        tcp_thread;
+        dataManager;
+        connectedClients;
         constructor = function(this)
-            this.host = "192.168.0.109" 
-            this.port = 3030 
+            this.host = "192.168.0.109"
+            this.port = 3030
             this.udp_thread = nil
             this.tcp_thread = nil
             -- create a TCP socket and bind it to the local host, at any port
@@ -35,21 +31,19 @@ function Server:new()
             this.dataManager.tryCreateTables()
         end
     }
-
     self.constructor(self)
-
     local sendMail = function ()
-        local m = NoReply:new({title = "Startup Inova", address = "<joao.victor.oliveira.couto@gmail.com>"}, 
-            {title = "Client", address = "<jictyvoo.ecomp@gmail.com>"}, 
+        local m = NoReply:new({title = "Startup Inova", address = "<joao.victor.oliveira.couto@gmail.com>"},
+            {title = "Client", address = "<jictyvoo.ecomp@gmail.com>"},
         {address = "smtp.gmail.com", user = "joao.victor.oliveira.couto@gmail.com", password = "professional981098@mail", port = 465})
-
         m.sendMessage("Meta de consumo", "Atingiu a meta de consumo estabelecida")
     end
-
     local verifyGoal_loop = function()
-        
+        local dbCommand = [[
+            SELECT * FROM 
+        ]]
+        self.databaseConnection:execute(dbCommand)
     end
-
     local executeClient = function()
         while true do
             for index, value in pairs(self.connectedClients) do
@@ -60,7 +54,6 @@ function Server:new()
             coroutine.yield()
         end
     end
-
     local tcp_loop = function()
         local client = nil
         while true do
@@ -68,19 +61,17 @@ function Server:new()
             if(client) then
                 local peername = client:getpeername()
                 print(string.format("Client Connected in IP:%s", peername))
-                local tcp_server = (require "server.Server_TCP"):new(client, self.databaseConnection, self.dataManager) 
+                local tcp_server = (require "server.Server_TCP"):new(client, self.databaseConnection, self.dataManager)
                 tcp_server.setThreadTable(self.connectedClients)
                 tcp_server.start()
             end
             coroutine.yield()
         end
     end
-
     local udp_loop = function()
         local udp_connection = (require "server.Server_UDP"):new(socket, self.host, self.port + 1, self.databaseConnection)
         udp_connection.receiveInformation()
     end
-
     local startServer = function()
         self.udp_thread = coroutine.create(udp_loop)
         self.tcp_thread = coroutine.create(tcp_loop)
@@ -89,11 +80,9 @@ function Server:new()
             coroutine.resume(self.udp_thread)
             coroutine.resume(self.tcp_thread)
             coroutine.resume(clients)
-            --print(coroutine.status(clients))
+            --print(coroutine.status(self.tcp_thread))
         end
     end
-
     return {startServer = startServer; sendMail = sendMail}
 end
-
 Server:new().startServer()
