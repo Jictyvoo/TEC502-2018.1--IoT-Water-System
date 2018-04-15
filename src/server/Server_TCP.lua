@@ -18,6 +18,7 @@ function Server_TCP:new(serverConn, databaseConn)
         databaseConnection;
         clientId;
         thread;
+
         constructor = function(this, serverConn, databaseConn)
             this.clientConnection = serverConn
             this.databaseConnection = databaseConn
@@ -25,7 +26,9 @@ function Server_TCP:new(serverConn, databaseConn)
             this.thread = nil
         end
     }
+
     self.constructor(self, serverConn, databaseConn)
+
     local function authenticateClient(message)
         if(message) then
             local beginig, ending = message:find("%[sensorID%]<")
@@ -44,30 +47,35 @@ function Server_TCP:new(serverConn, databaseConn)
         end
         return false
     end
+
     local function establishGoal(message)
         local goalString = message:gsub("%[goal%]:=", "")
         self.databaseConnection:execute(string.format("UPDATE Client SET expend_goal = %d WHERE client_id = %d", tonumber(goalString), self.clientId))
         self.databaseConnection:commit()
     end
+
     local function totalConsume()
         local consultCommand = [[
-        SELECT SUM(Water_Consume.water_expended)
+        SELECT SUM(Water_Consume.water_expended), Client.expend_goal
         FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id INNER JOIN 
         Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id WHERE Client.client_id = '%d'
         ]]
         return self.databaseConnection:execute(string.format(consultCommand, self.clientId)):fetch()
     end
+
     local function requireWater()
         local waterTable = {}
         local consultCommand = [[
         SELECT Water_Consume.water_expended, Water_Consume.last_syncronization, Client_Expend.expend_date
         FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id INNER JOIN 
-        Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id WHERE Client.client_id = '%d'
+        Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id WHERE Client.client_id = %d
         ]]
         local cursor = self.databaseConnection:execute(string.format(consultCommand, self.clientId))
-        cursor:fetch(waterTable, "n")
-        self.clientConnection:send(string.format("[waterConsume]<%d>)([dateTime]<%s %s>", tonumber(waterTable[1]), waterTable[3], waterTable[2]))
+        while cursor:fetch(waterTable, "n") do
+            self.clientConnection:send(string.format("[waterConsume]<%f>)([dateTime]<%s %s>\n", tonumber(waterTable[1]), waterTable[3], waterTable[2]))
+        end
     end
+
     local function detectFunction(message)
         if(message) then
             local callFunction = message:match("%[.+%]"):gsub("%[", ""):gsub("%]", "")
@@ -75,22 +83,24 @@ function Server_TCP:new(serverConn, databaseConn)
             if(callFunction == "goal") then
                 establishGoal(message)
             elseif(callFunction == "requireWater") then
-                local totalExpend = totalConsume()
-                print(totalExpend)
-                self.clientConnection:send(string.format("[totalWater]:=%f\n", totalExpend))
+                local totalExpend, clientGoal = totalConsume()
+                self.clientConnection:send(string.format("[totalWater]:=%f)([expendGoal]:=%f\n", totalExpend, clientGoal))
                 requireWater()
             end
         end
     end
+
     local function mainExecution()
         local message = self.clientConnection:receive()
         detectFunction(message)
-        --self.clientConnection:close()
+        self.clientConnection:close()
         self.thread[self.clientId] = nil
     end
+
     local function tableThread()
         self.thread[self.clientId] = coroutine.create(mainExecution)
     end
+
     local function start()
         self.clientConnection:settimeout(0.01)
         if(authenticateClient(self.clientConnection:receive())) then
@@ -102,9 +112,11 @@ function Server_TCP:new(serverConn, databaseConn)
             --print(ok, err)
         end
     end
+
     local function setThreadTable(thread)
         self.thread = thread
     end
+
     return {
         start = start;
         setThreadTable = setThreadTable;

@@ -28,7 +28,7 @@ function Server:new()
         connectedClients;
         constructor = function(this)
             this.host = "192.168.0.109"
-            this.port = 3030
+            this.port = 3090
             this.udp_thread = nil
             this.tcp_thread = nil
             -- create a TCP socket and bind it to the local host, at any port
@@ -52,7 +52,14 @@ function Server:new()
     end
     local verifyGoal_loop = function()
         local dbCommand = [[
-            SELECT * FROM 
+            SELECT SUM(Water_Consume.water_expended), Client.expend_goal
+            FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id INNER JOIN 
+            Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id
+        ]]
+        local dbCommand = [[
+            SELECT client_email FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id
+            INNER JOIN Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id
+            WHERE Client.expend_goal < 
         ]]
         self.databaseConnection:execute(dbCommand)
     end

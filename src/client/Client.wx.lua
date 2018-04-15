@@ -27,7 +27,7 @@ local REFRESHBUTTON_ID = 1005
 local SENDBUTTON_ID = 1006
 local GOALTEXTCTRL_ID = 1007
 function updateCurrentGoalText()
-    currentGoalText:SetLabel(string.format("Current Goal: %s"), tostring(currentGoal))
+    currentGoalText:SetLabel(string.format("Current Goal: %sm³", tostring(currentGoal)))
 end
 function updateCurrentExpend()
     currentExpenditure:SetLabel(string.format("Current Expenditure: %.2fm³", currentExpenditureInformation))
@@ -45,12 +45,16 @@ end
 -- Fill the listctrl
 -- ---------------------------------------------------------------------------
 function FillListCtrl(listCtrl)
-    listCtrl: DeleteAllItems()
-    local waterConsumeRow, receivedExpenditure = clientSocket.requireWaterConsume()
+    local waterConsumeRow, receivedExpenditure, receivedGoal = clientSocket.requireWaterConsume()
+    currentGoal = receivedGoal or currentGoal
     currentExpenditureInformation = receivedExpenditure or currentExpenditureInformation
     updateCurrentExpend()
-    for i = 0, 100, 1 do
-        AddListItem({"\t\t\t" .. i, os.date()})
+    updateCurrentGoalText()
+    if(#waterConsumeRow > 0) then
+        listCtrl: DeleteAllItems()
+        for index, value in ipairs(waterConsumeRow) do
+            AddListItem({"\t\t\t" .. value.consume, value.dateTime})
+        end
     end
 end
 function listPanel(panel, sizer)

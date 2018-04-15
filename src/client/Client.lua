@@ -69,7 +69,6 @@ function Client:new()
         if not true--[[canConnect()--]] then return false end
         if self.server:connect(self.host, self.port) then --connection established
             self.server:send("[sensorID]<" .. self.sensorID .. ">)([clientMail]<" .. self.clientMail .. ">\n")
-            print("Information Sended") --works at here
             local message = self.server:receive()
             if(not message) then
                 message = self.server:receive()
@@ -94,34 +93,41 @@ function Client:new()
     end
 
     local function requireWaterConsume()
-        local waterConsumeRow = nil
+        local waterConsumeRow = {}
         local totalWaterExpended = nil
+        local receivedGoal = nil
         local authenticated = sendMessage()
         if(authenticated) then
             self.server:send("[requireWater]?><\n")
             repeat
                 local message, err = self.server:receive()
-                print(message, err)
+                --print(message, err)
                 if not message then
                     self.server:close()
                     newSocket()
                     break
                 end
                 if message:match("%[totalWater%]:=") then
-                    local begining, ending = message:find("%[totalWater%]:=")
-                    totalWaterExpended = tonumber(message:sub(ending + 1))
+                    local begining, ending = message:find("%[expendGoal%]:=")
+                    if(ending) then
+                        totalWaterExpended = tonumber(message:sub(1, begining):match("%d+%.?%d*"))
+                        receivedGoal = tonumber(message:sub(ending):match("%d+%.?%d*"))
+                    else
+                        totalWaterExpended = tonumber(message:match("%d+%.?%d*"))
+                    end
                 else
-                    local begining, ending = message:find("[waterConsume]<")
+                    local begining, ending = message:find("%[waterConsume%]<")
                     local newConsume = {consume = 0, dateTime = ""}
-                    newConsume.consume = tonumber(message:sub(ending):match("%d"))
-                    begining, ending = message:find(">)([dateTime]<")
-                    newConsume.dateTime = message:match("[.^>]+")
+                    newConsume.consume = tonumber(message:sub(ending):match("%d+%.?%d*"))
+                    begining, ending = message:find(">%)%(%[dateTime%]<")
+                    newConsume.dateTime = message:sub(ending + 1):match("[%d-:%s]+")
+                    table.insert(waterConsumeRow, newConsume)
                 end
             until not self.server
         end
         self.server:close()
         newSocket()
-        return waterConsumeRow, totalWaterExpended
+        return waterConsumeRow, totalWaterExpended, receivedGoal
     end
     
     return {
