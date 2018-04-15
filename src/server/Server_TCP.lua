@@ -1,3 +1,16 @@
+--[[
+Autor:João Victor Oliveira Couto
+
+Componente Curricular: Concorrência e Conectividade
+
+Concluido em: 14/04/2018
+
+Declaro que este código foi elaborado por mim de forma individual e não contém nenhum
+trecho de código de outro colega ou de outro autor, tais como provindos de livros e
+apostilas, e páginas ou documentos eletrônicos da Internet. Qualquer trecho de código
+de outra autoria que não a minha está destacado com uma citação para o autor e a fonte
+do código, e estou ciente que estes trechos não serão considerados para fins de avaliação.
+--]]
 local Server_TCP = {}
 function Server_TCP:new(serverConn, databaseConn)
     local self = {
@@ -62,7 +75,9 @@ function Server_TCP:new(serverConn, databaseConn)
             if(callFunction == "goal") then
                 establishGoal(message)
             elseif(callFunction == "requireWater") then
-                self.clientConnection:send(string.format("[totalWater]:=%d", totalConsume()))
+                local totalExpend = totalConsume()
+                print(totalExpend)
+                self.clientConnection:send(string.format("[totalWater]:=%f\n", totalExpend))
                 requireWater()
             end
         end
