@@ -55,7 +55,6 @@ UI.buttonSizer_grid:Add(UI.upButton, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
 UI.downButton = wx.wxButton(UI.mainPanel, DOWNBUTTON_ID, "Down", wx.wxDefaultPosition, wx.wxDefaultSize, 0)
 UI.buttonSizer_grid:Add(UI.downButton, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
 
-
 UI.panelSizer:Add(UI.buttonSizer_grid, 1, wx.wxEXPAND, 5)
 
 UI.sycronization_radioBoxChoices = {"1", "5", "10", "60"}
@@ -69,12 +68,10 @@ UI.panelSizer:Add(UI.sendAutomatic_checkBox, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
 UI.sendData_button = wx.wxButton(UI.mainPanel, SENDBUTTON_ID, "Send Data", wx.wxDefaultPosition, wx.wxDefaultSize, 0)
 UI.panelSizer:Add(UI.sendData_button, 0, wx.wxALIGN_CENTER + wx.wxALL, 5)
 
-
 UI.mainPanel:SetSizer(UI.panelSizer)
 UI.mainPanel:Layout()
 UI.panelSizer:Fit(UI.mainPanel)
 UI.mainSizer:Add(UI.mainPanel, 1, wx.wxEXPAND + wx. wxALL, 5)
-
 
 UI.mainFrame:SetSizer(UI.mainSizer)
 UI.mainFrame:Layout()
@@ -127,7 +124,7 @@ function connectButtons()
     UI.mainFrame:Connect(SENDBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, sendFunction)
 
     local accelTable = wx.wxAcceleratorTable({
-        {wx.wxACCEL_NORMAL, wx.WXK_UP, UPBUTTON_ID}, 
+        {wx.wxACCEL_NORMAL, wx.WXK_UP, UPBUTTON_ID},
     {wx.wxACCEL_NORMAL, wx.WXK_DOWN, DOWNBUTTON_ID}})
 
     UI.mainFrame:SetAcceleratorTable(accelTable)
@@ -171,6 +168,5 @@ connectButtons()
 sendTimer(UI.mainPanel)
 
 UI.mainFrame:Show(true)
-
 
 wx.wxGetApp():MainLoop()
