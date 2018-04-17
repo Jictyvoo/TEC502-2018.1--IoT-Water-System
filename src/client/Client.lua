@@ -66,7 +66,7 @@ function Client:new()
     end
 
     local function sendMessage()
-        if not canConnect() then return false end
+        if not canConnect() then return false, "Invalid e-mail or Sensor ID" end
         if self.server:connect(self.host, self.port) then --connection established
             self.server:send("[sensorID]<" .. self.sensorID .. ">)([clientMail]<" .. self.clientMail .. ">\n")
             local message = self.server:receive()
@@ -75,28 +75,29 @@ function Client:new()
             end
             print(message)
             if(message == "$NOTAUT") then -- authenticated connection
-                return false
+                return false, "verify your credencials to try again"
             elseif(message ~= "[sensorID]<" .. self.sensorID .. ">)([clientMail]<" .. self.clientMail .. ">\n") then
                 return true
             end
         end
-        return nil
+        return nil, "Verify your internet connection to try again"
     end
 
     local function sendNewGoal(newGoal)
-        local authenticated = sendMessage()
+        local authenticated, err = sendMessage()
         if(authenticated) then
             self.server:send(string.format("[goal]:=%d\n", newGoal))
         end
         self.server:close()
         newSocket()
+        return (not authenticated and {"Authentication Error", err}) or nil
     end
 
     local function requireWaterConsume()
         local waterConsumeRow = {}
         local totalWaterExpended = nil
         local receivedGoal = nil
-        local authenticated = sendMessage()
+        local authenticated, err = sendMessage()
         if(authenticated) then
             self.server:send("[requireWater]?><\n")
             repeat
@@ -127,7 +128,7 @@ function Client:new()
         end
         self.server:close()
         newSocket()
-        return waterConsumeRow, totalWaterExpended, receivedGoal
+        return waterConsumeRow, totalWaterExpended, receivedGoal, (not authenticated and {"Authentication Error", err}) or nil
     end
     
     return {

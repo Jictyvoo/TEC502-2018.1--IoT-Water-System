@@ -45,12 +45,15 @@ end
 -- Fill the listctrl
 -- ---------------------------------------------------------------------------
 function FillListCtrl(listCtrl)
-    local waterConsumeRow, receivedExpenditure, receivedGoal = clientSocket.requireWaterConsume()
-    currentGoal = receivedGoal or currentGoal
-    currentExpenditureInformation = receivedExpenditure or currentExpenditureInformation
-    updateCurrentExpend()
-    updateCurrentGoalText()
-    if(#waterConsumeRow > 0) then
+    local waterConsumeRow, receivedExpenditure, receivedGoal, err = clientSocket.requireWaterConsume()
+    if(err) then
+        wx.wxMessageBox(err[2], err[1], wx.wxOK + wx.wxICON_INFORMATION, frame)
+    end
+    if(#waterConsumeRow > 0 and not err) then
+        currentGoal = receivedGoal or currentGoal
+        currentExpenditureInformation = receivedExpenditure or currentExpenditureInformation
+        updateCurrentExpend()
+        updateCurrentGoalText()
         listCtrl: DeleteAllItems()
         for index, value in ipairs(waterConsumeRow) do
             AddListItem({"\t\t\t" .. value.consume, value.dateTime})
@@ -132,11 +135,17 @@ function manipulateEvents()
     frame:Connect(wx.wxID_EXIT, wx.wxEVT_COMMAND_MENU_SELECTED, closeFrameFunction)
     -- connect the selection event of the about menu item
     local eventAbout = function (event)
-        wx.wxMessageBox("This is the a Inova System to monitore your water consume.\n",
+        wx.wxMessageBox("This is a Inova System to monitore your water expenditure.\n",
         "About Inova Client", wx.wxOK + wx.wxICON_INFORMATION, frame)
     end
     frame:Connect(wx.wxID_ABOUT, wx.wxEVT_COMMAND_MENU_SELECTED, eventAbout)
-    local sendGoal = function(event) event:Skip(); clientSocket.sendNewGoal(goalTextCtrl:GetValue()) end
+    local sendGoal = function(event)
+        event:Skip()
+        local err = clientSocket.sendNewGoal(goalTextCtrl:GetValue())
+        if(err) then
+            wx.wxMessageBox(err[2], err[1], wx.wxOK + wx.wxICON_INFORMATION, frame)
+        end
+    end
     frame:Connect(CONFIGUREBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, function(event) event:Skip(); configurationDialog(frame) end)
     frame:Connect(REFRESHBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, function(event) event:Skip(); FillListCtrl(listCtrl) end)
     frame:Connect(SENDBUTTON_ID, wx.wxEVT_COMMAND_BUTTON_CLICKED, sendGoal)
