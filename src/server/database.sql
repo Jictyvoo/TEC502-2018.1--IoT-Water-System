@@ -5,7 +5,9 @@ USE inova_water;
 CREATE TABLE IF NOT EXISTS Client(
 	client_id integer primary key,
 	ip_client varchar(20) not null,
+	zone char(2),
 	expend_goal real,
+	goal_update int(1),
 	client_email varchar(50)
 );
 

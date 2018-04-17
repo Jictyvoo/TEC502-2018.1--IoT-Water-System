@@ -12,7 +12,6 @@ de outra autoria que não a minha está destacado com uma citação para o autor
 do código, e estou ciente que estes trechos não serão considerados para fins de avaliação.
 --]]
 local socket = require "socket"
-local NoReply = require "util.NoReply"
 local DataManager = require "server.DataManager"
 local sqlite3 = (require "luasql.sqlite3"):sqlite3()
 local Server = {}
@@ -24,19 +23,23 @@ function Server:new()
         databaseConnection;
         udp_thread;
         tcp_thread;
+        goal_thread;
         dataManager;
         connectedClients;
+        emailAdress;
         constructor = function(this)
             this.host = "192.168.0.109"
-            this.port = 3090
+            this.port = 3035
             this.udp_thread = nil
             this.tcp_thread = nil
+            this.goal_thread = nil
             -- create a TCP socket and bind it to the local host, at any port
             this.server = socket.tcp()
             this.server:bind(this.host, this.port)
             this.server:listen(1000)
             this.server:settimeout(0.001)
             this.connectedClients = {}
+            this.emailAdress = {}
             this.databaseConnection = sqlite3:connect("inova_database.sqlite3")
             this.dataManager = DataManager:instance()
             this.dataManager.setConnection(this.databaseConnection)
@@ -44,30 +47,41 @@ function Server:new()
         end
     }
     self.constructor(self)
-    local sendMail = function ()
-        local m = NoReply:new({title = "Startup Inova", address = "<joao.victor.oliveira.couto@gmail.com>"},
-            {title = "Client", address = "<jictyvoo.ecomp@gmail.com>"},
-        {address = "smtp.gmail.com", user = "joao.victor.oliveira.couto@gmail.com", password = "professional981098@mail", port = 465})
-        m.sendMessage("Meta de consumo", "Atingiu a meta de consumo estabelecida")
-    end
     local verifyGoal_loop = function()
-        local dbCommand = [[
-            SELECT SUM(Water_Consume.water_expended), Client.expend_goal
-            FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id INNER JOIN 
-            Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id
-        ]]
-        local dbCommand = [[
-            SELECT client_email FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id
-            INNER JOIN Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id
-            WHERE Client.expend_goal < 
-        ]]
-        self.databaseConnection:execute(dbCommand)
+        local verifySearch = coroutine.create(self.dataManager.verifyGoal)
+        local lanes = require "lanes".configure()
+        local linda = lanes.linda()
+        local function sendMail()
+            local NoReply = require "util.NoReply"
+            local no_reply = NoReply:new({title = "Startup Inova", address = "<joao.victor.oliveira.couto@gmail.com>"},
+                {title = "Client", address = "<common@mail.com>"},
+            {address = "smtp.gmail.com", user = "joao.victor.oliveira.couto@gmail.com", password = "_changed@mail", port = 465})
+            while true do
+                local key, value = linda:receive(3, "mailMessage") -- timeout in seconds
+                if value then
+                    print("Sending to " .. string.format("<%s>", value))
+                    no_reply.setTo("Client", string.format("<%s>", value))
+                    no_reply.sendMessage("Meta de consumo", "Atingiu a meta de consumo estabelecida")
+                end
+            end
+        end
+        local second_thread = lanes.gen("*", sendMail)()
+        while true do
+            if(coroutine.status(verifySearch) == "dead") then
+                verifySearch = coroutine.create(self.dataManager.verifyGoal)
+            end
+            local ok, mail = coroutine.resume(verifySearch)
+            --print(ok, mail)
+            if(mail) then
+                linda:send("mailMessage", mail) -- linda as upvalue
+            end
+            coroutine.yield()
+        end
     end
     local executeClient = function()
         while true do
             for index, value in pairs(self.connectedClients) do
                 coroutine.resume(value)
-                --print(coroutine.status(value))
                 coroutine.yield()
             end
             coroutine.yield()
@@ -80,7 +94,7 @@ function Server:new()
             if(client) then
                 local peername = client:getpeername()
                 print(string.format("Client Connected in IP:%s", peername))
-                local tcp_server = (require "server.Server_TCP"):new(client, self.databaseConnection, self.dataManager)
+                local tcp_server = (require "server.Server_TCP"):new(client, self.databaseConnection, self.emailAdress)
                 tcp_server.setThreadTable(self.connectedClients)
                 tcp_server.start()
             end
@@ -94,14 +108,16 @@ function Server:new()
     local startServer = function()
         self.udp_thread = coroutine.create(udp_loop)
         self.tcp_thread = coroutine.create(tcp_loop)
+        self.goal_thread = coroutine.create(verifyGoal_loop)
         local clients = coroutine.create(executeClient)
         while true do
             coroutine.resume(self.udp_thread)
             coroutine.resume(self.tcp_thread)
             coroutine.resume(clients)
+            coroutine.resume(self.goal_thread)
             --print(coroutine.status(self.tcp_thread))
         end
     end
-    return {startServer = startServer; sendMail = sendMail}
+    return {startServer = startServer}
 end
 Server:new().startServer()

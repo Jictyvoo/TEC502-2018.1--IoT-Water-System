@@ -6,3 +6,4 @@
 * [wxlua](http://wxlua.sourceforge.net/index.php)
 * [luasql.sqlite3](https://keplerproject.github.io/luasql/)
 * [luasec](https://github.com/brunoos/luasec)
+* [lanes](https://github.com/LuaLanes/lanes)

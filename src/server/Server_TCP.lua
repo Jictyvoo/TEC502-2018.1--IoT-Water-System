@@ -12,22 +12,24 @@ de outra autoria que não a minha está destacado com uma citação para o autor
 do código, e estou ciente que estes trechos não serão considerados para fins de avaliação.
 --]]
 local Server_TCP = {}
-function Server_TCP:new(serverConn, databaseConn)
+function Server_TCP:new(serverConn, databaseConn, clientMailList)
     local self = {
         clientConnection;
         databaseConnection;
         clientId;
         thread;
+        clientMailList;
 
-        constructor = function(this, serverConn, databaseConn)
+        constructor = function(this, serverConn, databaseConn, clientMailList)
             this.clientConnection = serverConn
             this.databaseConnection = databaseConn
             this.clientId = nil
             this.thread = nil
+            this.clientMailList = clientMailList
         end
     }
 
-    self.constructor(self, serverConn, databaseConn)
+    self.constructor(self, serverConn, databaseConn, clientMailList)
 
     local function authenticateClient(message)
         if(message) then
@@ -41,8 +43,12 @@ function Server_TCP:new(serverConn, databaseConn)
             end
             self.clientId = client_id
             beginig, ending = message:find("%[clientMail%]<")
-            client_email = message:sub(ending + 1, #message - 2)
-            self.databaseConnection:execute(string.format("UPDATE Client SET client_email = '%s' WHERE ip_client = '%s'", client_email, sensorID))
+            client_email = message:sub(ending + 1, #message - 1)
+            if(self.clientMailList[sensorID] ~= client_email) then
+                print("Update email")
+                self.clientMailList[sensorID] = client_email
+                self.databaseConnection:execute(string.format("UPDATE Client SET client_email = '%s' WHERE ip_client = '%s'", client_email, sensorID))
+            end
             return true
         end
         return false
@@ -50,7 +56,7 @@ function Server_TCP:new(serverConn, databaseConn)
 
     local function establishGoal(message)
         local goalString = message:gsub("%[goal%]:=", "")
-        self.databaseConnection:execute(string.format("UPDATE Client SET expend_goal = %d WHERE client_id = %d", tonumber(goalString), self.clientId))
+        self.databaseConnection:execute(string.format("UPDATE Client SET expend_goal = %d, goal_update = 1 WHERE client_id = %d", tonumber(goalString), self.clientId))
         self.databaseConnection:commit()
     end
 

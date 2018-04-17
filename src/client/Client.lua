@@ -66,7 +66,7 @@ function Client:new()
     end
 
     local function sendMessage()
-        if not true--[[canConnect()--]] then return false end
+        if not canConnect() then return false end
         if self.server:connect(self.host, self.port) then --connection established
             self.server:send("[sensorID]<" .. self.sensorID .. ">)([clientMail]<" .. self.clientMail .. ">\n")
             local message = self.server:receive()
