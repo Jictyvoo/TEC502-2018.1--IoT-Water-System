@@ -11,30 +11,31 @@ apostilas, e páginas ou documentos eletrônicos da Internet. Qualquer trecho de
 de outra autoria que não a minha está destacado com uma citação para o autor e a fonte
 do código, e estou ciente que estes trechos não serão considerados para fins de avaliação.
 --]]
-local DataManager = {}
-local dataManager_instance = nil
-function DataManager:new(databaseConn)
+local DataManager = {} --create a local table to storage instatiation functions
+local dataManager_instance = nil --local variable to storage the current class instance
+function DataManager:new(databaseConn) --function to create a new instance of DataManager
 
-    local self = {
-        connection;
+    local self = {--local table to storage private attributes
+        connection; --attribute to storage database connection
 
-        constructor = function(this, databaseConn)
+        constructor = function(this, databaseConn) --constructor function that initialize attributes
             this.connection = databaseConn
         end
     }
 
-    self.constructor(self, databaseConn)
+    self.constructor(self, databaseConn) --call constructor
 
     local function setConnection(databaseConnection)
         self.connection = databaseConnection
     end
 
-    local function tryCreateTables(databaseConnection)
+    local function tryCreateTables(databaseConnection) --function that create all needed tables if not exist
         self.connection = databaseConnection or self.connection
-        if (not self.connection) then
+        if (not self.connection) then --if not have a connection abort
             return false
         end
 
+        --sql scripts for execute
         self.connection:execute("CREATE DATABASE IF NOT EXISTS inova_water")
         self.connection:execute("USE inova_water")
 
@@ -76,8 +77,8 @@ function DataManager:new(databaseConn)
         return true
     end
 
-    local function verifyGoal()
-        local tableSearch = {}
+    local function verifyGoal() --function that verify if somebody reached the goal established
+        local tableSearch = {} --table to stores search informations
         local dbCommand_1 = [[
             SELECT SUM(Water_Consume.water_expended), Client.client_id
             FROM Client INNER JOIN Client_Expend ON Client.client_id = Client_Expend.fk_client_id INNER JOIN 
@@ -89,35 +90,35 @@ function DataManager:new(databaseConn)
             INNER JOIN Water_Consume ON Water_Consume.fk_water_expend_id = Client_Expend.water_expend_id
             WHERE Client.expend_goal < %f AND Client.client_id = %d
         ]]
-        local cursor = self.connection:execute(dbCommand_1)
-        while(cursor:fetch(tableSearch, "n")) do
-            coroutine.yield()
-            if(tableSearch[1]) then
+        local cursor = self.connection:execute(dbCommand_1) --cursor for first search
+        while(cursor:fetch(tableSearch, "n")) do --loop to verify if reached goal or not
+            coroutine.yield() --pause actual coroutine
+            if(tableSearch[1]) then --if found something
                 local mailSend = self.connection:execute(string.format(dbCommand_2, tableSearch[1], tableSearch[2]))
-                if(mailSend) then
-                    local client_email = mailSend:fetch()
+                if(mailSend) then --if found a mail to send goal, execute it
+                    local client_email = mailSend:fetch() --get the client mail
                     local dbCommand_3 = "UPDATE Client SET goal_update = 0 WHERE client_id = %d"
-                    coroutine.yield()
-                    coroutine.yield(client_email)
-                    self.connection:execute(string.format(dbCommand_3, tableSearch[2]))
+                    coroutine.yield() --pause coroutine
+                    coroutine.yield(client_email) --pause coroutine and returns founded mail
+                    self.connection:execute(string.format(dbCommand_3, tableSearch[2])) --remove mail from list
                     self.connection:commit()
                 end
             end
         end
     end
 
-    return {
+    return {--returns methods that can be accessed externaly
         setConnection = setConnection;
         tryCreateTables = tryCreateTables;
         verifyGoal = verifyGoal;
     }
 end
 
-function DataManager:instance()
-    if(not dataManager_instance) then
+function DataManager:instance() --function to get the class instance
+    if(not dataManager_instance) then --if functions first call instantiate a new object
         dataManager_instance = DataManager:new()
     end
-    return dataManager_instance
+    return dataManager_instance --return current instance
 end
 
-return DataManager
+return DataManager --return DataManager object table

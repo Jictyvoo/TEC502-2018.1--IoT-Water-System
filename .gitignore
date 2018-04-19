@@ -1,5 +1,7 @@
 *.sqlite3
 *.so
+*.sublime-project
+*.sublime-workspace
 
 bin/
 Relatorios/

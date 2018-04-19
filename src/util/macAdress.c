@@ -30,6 +30,7 @@
 #include "lualib/lauxlib.h"
 #include "lualib/lualib.h"
 
+/*This code was found in the internet, in some fórum, I don't remember the author, but credits to him*/
 int get_local_hwaddr(const char *ifname, unsigned char *mac)
 {
     struct ifreq ifr;

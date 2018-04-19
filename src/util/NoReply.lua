@@ -11,31 +11,31 @@ apostilas, e páginas ou documentos eletrônicos da Internet. Qualquer trecho de
 de outra autoria que não a minha está destacado com uma citação para o autor e a fonte
 do código, e estou ciente que estes trechos não serão considerados para fins de avaliação.
 --]]
-local socket = require 'socket'
-local smtp = require 'socket.smtp'
-local ssl = require 'ssl'
-local https = require 'ssl.https'
-local ltn12 = require 'ltn12'
-local NoReply = {}
+local socket = require 'socket' --import socket api
+local smtp = require 'socket.smtp' --import socket smtp api
+local ssl = require 'ssl' --import ssl api
+local https = require 'ssl.https' --import ssl https api
+local ltn12 = require 'ltn12' --import ltn12 api
+local NoReply = {} --create table for NoReply class
 
-function NoReply:new(from, to, server)
+function NoReply:new(from, to, server) --create instantiation function
 
-    local self = {
-        from;
-        to;
-        server;
+    local self = {--create a local table to storage private attributes
+        from; --a from table that contains information about who sending the email
+        to; --a to table that contains information about who received the email
+        server; --a server table that contains information about the api used to send the email
 
-        constructor = function(this, from, to, server)
+        constructor = function(this, from, to, server) --constructor to initialize the attributes
             this.from = from or {}
             this.to = to or {}
             this.server = server or {}
         end
     }
 
-    self.constructor(self, from, to, server)
+    self.constructor(self, from, to, server) --call the constructor
 
     -- Michal Kottman, 2011, public domain
-    local sslCreate = function ()
+    local sslCreate = function () --function created by Michal Kottman to encrypt the message with ssl
         local sock = socket.tcp()
         return setmetatable({
             connect = function(_, host, port)
@@ -53,21 +53,21 @@ function NoReply:new(from, to, server)
         })
     end
 
-    local setFrom = function(title, address, charset, encode)
+    local setFrom = function(title, address, charset, encode) --a set function to set attributes
         self.from.title = title or self.from.title
         self.from.address = address or self.from.address
         self.from.charset = charset or self.from.charset
         self.from.encode = encode or self.from.encode
     end
 
-    local setTo = function(title, address, charset, encode)
+    local setTo = function(title, address, charset, encode) --a set function to set attributes
         self.to.title = title or self.to.title
         self.to.address = address or self.to.address
         self.to.charset = charset or self.to.charset
         self.to.encode = encode or self.to.encode
     end
 
-    local setServer = function(address, port, user, password, ssl, create)
+    local setServer = function(address, port, user, password, ssl, create) --a set function to set attributes
         self.server.address = address or self.server.address
         self.server.port = port or self.server.port
         self.server.user = user or self.server.user
@@ -80,16 +80,16 @@ function NoReply:new(from, to, server)
         sendmail(self.from, self.to, self.server, {subject, mailBody, file})
     end--]]
 
-    local sendMessage = function (subject, body)
-        local msg = {
-            headers = {
+    local sendMessage = function (subject, body) --main function to send the email
+        local msg = {--table that contains the message information
+            headers = {--mail header containing who mail need to be sent and subject
                 to = self.to.address,
                 subject = subject
             },
-            body = body
+            body = body --mail body
         }
 
-        local ok, err = smtp.send {
+        local ok, err = smtp.send {--function that try to send the email
             from = self.from.address,
             rcpt = self.to.address,
             source = smtp.message(msg),
@@ -104,7 +104,7 @@ function NoReply:new(from, to, server)
         end
     end
 
-    return {
+    return {--returns public methods that can be acessed externaly
         setFrom = setFrom;
         setTo = setTo;
         setServer = setServer;
@@ -114,4 +114,4 @@ function NoReply:new(from, to, server)
 
 end
 
-return NoReply
+return NoReply --returns the NoReply table that have new function for instantiate a new object
